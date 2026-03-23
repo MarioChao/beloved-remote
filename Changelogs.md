@@ -1,5 +1,9 @@
 # Changelogs
 
+## [v0.0.1] Fixed wally description | 2026/03/23
+
+Fixed description not showing up on Wally.
+
 ## [v0.0.0] Beloved remote | 2026/03/22
 
 Created the `BelovedRemote` module:

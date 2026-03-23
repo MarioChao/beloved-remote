@@ -1,8 +1,8 @@
 [package]
 name = "mariochao/beloved-remote"
-decription = "Experimental manager for (unreliable) remote events and remote functions."
+description = "Experimental manager for (unreliable) remote events and remote functions."
 
-version = "0.0.0"
+version = "0.0.1"
 license = "MIT"
 authors = ["Mario Chao"]
 realm = "shared"
