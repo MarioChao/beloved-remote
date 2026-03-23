@@ -1,12 +1,12 @@
 [package]
 name = "mariochao/beloved-remote"
-decription = "Manager for (unreliable) remote events and remote functions."
+decription = "Experimental manager for (unreliable) remote events and remote functions."
 
 version = "0.0.0"
-license = ""
+license = "MIT"
 authors = ["Mario Chao"]
 realm = "shared"
 registry = "https://github.com/UpliftGames/wally-index"
-repository = ""
+repository = "https://github.com/MarioChao/beloved-remote"
 
 [dependencies]

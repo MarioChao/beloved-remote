@@ -11,6 +11,11 @@
         "BelovedRemote": {
           "$path": "src/BelovedRemote"
         }
+      },
+
+      "_BelovedTester": {
+        "$className": "Folder",
+        "$path": "src/BelovedTester"
       }
     }
   },
