@@ -65,7 +65,7 @@ local getIsEnvironment
 
 local getBeloved
 local setPlayerIsConnected
-local isPlayerConnected
+local getIsPlayerConnected
 local waitForPlayerToConnect
 
 local getReceiverEvent
@@ -111,7 +111,7 @@ setPlayerIsConnected = function(beloved: Beloved, player: Player, isConnected: b
 	beloved_isConnected[beloved] = if isConnected then true else nil
 end
 
-isPlayerConnected = function(beloved: Beloved, player: Player)
+getIsPlayerConnected = function(beloved: Beloved, player: Player)
 	local beloved_isConnected = Globals.player_beloved_isConnected[player] or {}
 	local isConnected = beloved_isConnected[beloved] == true
 	return isConnected
@@ -122,7 +122,7 @@ waitForPlayerToConnect = function(beloved: Beloved, player: Player, timeout: num
 	local startTime = time()
 	local passedTime = 0
 	local targetTimeout = timeout or Constants.defaultWaitTimeout
-	while not isPlayerConnected(beloved, player) do
+	while not getIsPlayerConnected(beloved, player) do
 		if passedTime > targetTimeout then
 			break
 		end
@@ -238,8 +238,26 @@ local Module = {}
 
 ----- Environment -----
 
+--[[
+Returns the environment of the script that's running the module.
+]]
 function Module.getEnvironmentInfo()
 	return Constants.environment
+end
+
+
+----- Check connected -----
+
+--[[
+Returns whether a Player has started listening to a remote action.
+@param player Player to check.
+@param remoteType Type of remote event: "RE" - remote event, "UE" - unreliable remote event, "RF" - remote function.
+@param name: Name of the remote action.
+]]
+function Module.getIsPlayerConnected(player: Player, remoteType: BelovedPrefix, name: BelovedAction)
+	assert(getIsEnvironment("Server"), "[Beloved Remote]: getIsPlayerConnected should be called from the Server!")
+	local beloved = getBeloved(remoteType, name)
+	return getIsPlayerConnected(beloved, player)
 end
 
 
@@ -247,18 +265,30 @@ end
 
 -- Assume that the server is already connected.
 
+--[[
+Triggers a remote event on the Server.
+@param name Name of the remote action.
+]]
 function Module.fire_toServer(name: BelovedAction, ...)
 	assert(getIsEnvironment("Client"), "[Beloved Remote]: fire_toServer should be called from the Client!")
 	local beloved = getBeloved("RE", name)
 	Constants.assets.remoteEvent:FireServer(beloved, ...)
 end
 
+--[[
+Triggers an unreliable remote event on the Server.
+@param name Name of the remote action.
+]]
 function Module.fireUnreliable_toServer(name: BelovedAction, ...)
 	assert(getIsEnvironment("Client"), "[Beloved Remote]: fireUnreliable_toServer should be called from the Client!")
 	local beloved = getBeloved("UE", name)
 	Constants.assets.unreliableRemoteEvent:FireServer(beloved, ...)
 end
 
+--[[
+Calls a remote function on the Server, returns result back to the Client.
+@param name Name of the remote action.
+]]
 function Module.invoke_toServer(name: BelovedAction, ...)
 	assert(getIsEnvironment("Client"), "[Beloved Remote]: invoke_toServer should be called from the Client!")
 	local beloved = getBeloved("RF", name)
@@ -270,12 +300,16 @@ end
 
 -- Make sure that the client is connected.
 
+--[[
+Triggers a remote event on a Client.
+@param name Name of the remote action.
+]]
 function Module.fire_toClient(name: BelovedAction, player: Player, ...)
 	assert(getIsEnvironment("Server"), "[Beloved Remote]: fire_toClient should be called from the Server!")
 	local beloved = getBeloved("RE", name)
 	task.spawn(function(...: any)
 		waitForPlayerToConnect(beloved, player)
-		if isPlayerConnected(beloved, player) then
+		if getIsPlayerConnected(beloved, player) then
 			Constants.assets.remoteEvent:FireClient(player, beloved, ...)
 		else
 			warn(`[Beloved Remote]: {player} isn't connected yet!`)
@@ -284,12 +318,16 @@ function Module.fire_toClient(name: BelovedAction, player: Player, ...)
 	end, ...)
 end
 
+--[[
+Triggers an unreliable remote event on a Client.
+@param name Name of the remote action.
+]]
 function Module.fireUnreliable_toClient(name: BelovedAction, player: Player, ...)
 	assert(getIsEnvironment("Server"), "[Beloved Remote]: fireUnreliable_toClient should be called from the Server!")
 	local beloved = getBeloved("UE", name)
 	task.spawn(function(...: any)
 		waitForPlayerToConnect(beloved, player)
-		if isPlayerConnected(beloved, player) then
+		if getIsPlayerConnected(beloved, player) then
 			Constants.assets.unreliableRemoteEvent:FireClient(player, beloved, ...)
 		else
 			warn(`[Beloved Remote]: {player} isn't connected yet!`)
@@ -298,11 +336,15 @@ function Module.fireUnreliable_toClient(name: BelovedAction, player: Player, ...
 	end, ...)
 end
 
+--[[
+Calls a remote function on a Client, returns result back to the Server.
+@param name Name of the remote action.
+]]
 function Module.invoke_toClient(name: BelovedAction, player: Player, ...)
 	assert(getIsEnvironment("Server"), "[Beloved Remote]: invoke_toClient should be called from the Server!")
 	local beloved = getBeloved("RF", name)
 	waitForPlayerToConnect(beloved, player)
-	if isPlayerConnected(beloved, player) then
+	if getIsPlayerConnected(beloved, player) then
 		return Constants.assets.remoteFunction:InvokeClient(player, beloved, ...)
 	else
 		warn(`[Beloved Remote]: {player} isn't connected yet!`)
@@ -316,6 +358,11 @@ end
 
 -- Connect to onServerEvent and onServerInvoke.
 
+--[[
+Listens to a remote event to the Server.
+@param name Name of the remote action.
+@param callback Handler function for the event.
+]]
 function Module.connect_toServer(name: BelovedAction, callback: (player: Player, ...any) -> ())
 	assert(getIsEnvironment("Server"), "[Beloved Remote]: connect_toServer should be called from the Server!")
 	local beloved = getBeloved("RE", name)
@@ -326,6 +373,11 @@ function Module.connect_toServer(name: BelovedAction, callback: (player: Player,
 	end
 end
 
+--[[
+Listens to an unreliable remote event to the Server.
+@param name Name of the remote action.
+@param callback Handler function for the event.
+]]
 function Module.connectUnreliable_toServer(name: BelovedAction, callback: (player: Player, ...any) -> ())
 	assert(getIsEnvironment("Server"), "[Beloved Remote]: connectUnreliable_toServer should be called from the Server!")
 	local beloved = getBeloved("UE", name)
@@ -336,6 +388,11 @@ function Module.connectUnreliable_toServer(name: BelovedAction, callback: (playe
 	end
 end
 
+--[[
+Sets the callback for a remote function on the Server.
+@param name Name of the remote action.
+@param callback Callback function for the remote action.
+]]
 function Module.setOnInvoke_toServer(name: BelovedAction, callback: (player: Player, ...any) -> ...any)
 	assert(getIsEnvironment("Server"), "[Beloved Remote]: setOnInvoke_toServer should be called from the Server!")
 	local beloved = getBeloved("RF", name)
@@ -351,6 +408,11 @@ end
 
 -- Connect to onClientEvent and onClientInvoke.
 
+--[[
+Listens to a remote event to the Client.
+@param name Name of the remote action.
+@param callback Handler function for the event.
+]]
 function Module.connect_toClient(name: BelovedAction, callback: (...any) -> ())
 	assert(getIsEnvironment("Client"), "[Beloved Remote]: connect_toClient should be called from the Client!")
 	local beloved = getBeloved("RE", name)
@@ -361,6 +423,11 @@ function Module.connect_toClient(name: BelovedAction, callback: (...any) -> ())
 	end
 end
 
+--[[
+Listens to an unreliable remote event to the Client.
+@param name Name of the remote action.
+@param callback Handler function for the event.
+]]
 function Module.connectUnreliable_toClient(name: BelovedAction, callback: (...any) -> ())
 	assert(getIsEnvironment("Client"), "[Beloved Remote]: connectUnreliable_toClient should be called from the Client!")
 	local beloved = getBeloved("UE", name)
@@ -371,6 +438,11 @@ function Module.connectUnreliable_toClient(name: BelovedAction, callback: (...an
 	end
 end
 
+--[[
+Sets the callback for a remote function on the Client.
+@param name Name of the remote action.
+@param callback Callback function for the remote action.
+]]
 function Module.setOnInvoke_toClient(name: BelovedAction, callback: (...any) -> ...any)
 	assert(getIsEnvironment("Client"), "[Beloved Remote]: setOnInvoke_toClient should be called from the Client!")
 	local beloved = getBeloved("RF", name)
@@ -389,16 +461,28 @@ function Module._belovePlayer_toServer(beloved: Beloved)
 	Constants.assets.remoteEvent:FireServer(beloved, Constants.connectPlayerString)
 end
 
+--[[
+Signals the Server that the Client has started listening to a remote event.
+@param name Name of the remote action.
+]]
 function Module.belovePlayer_RE_toServer(name: BelovedAction)
 	assert(getIsEnvironment("Client"), "[Beloved Remote]: belovePlayer_RE_toServer should be called from the Client!")
 	Module._belovePlayer_toServer(getBeloved("RE", name))
 end
 
+--[[
+Signals the Server that the Client has started listening to an unreliable remote event.
+@param name Name of the remote action.
+]]
 function Module.belovePlayer_UE_toServer(name: BelovedAction)
 	assert(getIsEnvironment("Client"), "[Beloved Remote]: belovePlayer_RE_toServer should be called from the Client!")
 	Module._belovePlayer_toServer(getBeloved("UE", name))
 end
 
+--[[
+Signals the Server that the Client has started listening to a remote function.
+@param name Name of the remote action.
+]]
 function Module.belovePlayer_RF_toServer(name: BelovedAction)
 	assert(getIsEnvironment("Client"), "[Beloved Remote]: belovePlayer_RF_toServer should be called from the Client!")
 	Module._belovePlayer_toServer(getBeloved("RF", name))
